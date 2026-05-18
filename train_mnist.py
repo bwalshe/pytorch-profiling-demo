@@ -17,28 +17,19 @@ from torch.utils.tensorboard import SummaryWriter
 
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(9216, 128)
-        self.fc2 = nn.Linear(128, 10)
+        super().__init__()
+        self.input_size = 28 * 28
+        hidden_size = self.input_size * 10
+        output_size = 10
+        self.fc1 = nn.Linear(self.input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, output_size)
 
-    def forward(self, x):
-        x = self.conv1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
-        x = torch.flatten(x, 1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout2(x)
-        x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
-        return output
+    def forward(self, xb):
+        xb = xb.reshape((-1, self.input_size))
+        xb = self.fc1(xb)
+        xb = F.relu(xb)
+        xb = self.fc2(xb)
+        return F.log_softmax(xb)
 
 
 class DataLoaderConfig(BaseModel):
@@ -84,6 +75,7 @@ def build_data_loaders(config: TrainingRunConfig) -> tuple[DataLoader, DataLoade
             "num_workers": config.data_loader.num_workers,
             "prefetch_factor": config.data_loader.prefetch_factor,
             "persistent_workers": True,
+            "shuffle": True,
         }
         train_kwargs.update(accel_kwargs)
         test_kwargs.update(accel_kwargs)
@@ -134,7 +126,6 @@ def train_model(config: TrainingRunConfig, log_dir: Path) -> None:
                                 loss.item(),
                             )
                         )
-
         tensorboard_log.add_scalar(
             "Loss/train", total_loss / len(train_loader.dataset), epoch
         )
@@ -166,8 +157,13 @@ def train_model(config: TrainingRunConfig, log_dir: Path) -> None:
             )
         )
 
+    profile_schedule = schedule(wait=1, warmup=1, active=1, repeat=1)
     with profile(
-        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True
+        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+        record_shapes=False,
+        profile_memory=True,
+        with_stack=False,
+        schedule=profile_schedule,
     ) as prof:
         for epoch in range(1, config.epochs + 1):
             with record_function("train"):
