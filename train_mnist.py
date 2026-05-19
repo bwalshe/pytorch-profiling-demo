@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import yaml
 
 import torch
@@ -33,11 +33,13 @@ class Net(nn.Module):
 
 
 class DataLoaderConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
     num_workers: int = 0
     prefetch_factor: int | None = None
 
 
 class TrainingRunConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
     batch_size: int = 1000
     test_batch_size: int = 1000
     epochs: int = 1
@@ -51,7 +53,13 @@ class TrainingRunConfig(BaseModel):
 
     def save(self, path: Path) -> None:
         with path.open("w") as outstream:
-            yaml.safe_dump(self.model_dump(mode="json"), outstream)
+            self._to_yaml(outstream)
+
+    def to_yaml(self) -> str:
+        return self._to_yaml(None)
+
+    def _to_yaml(self, outstream):
+        return yaml.safe_dump(self.model_dump(mode="json"), outstream)
 
 
 def load_config(path: Path) -> TrainingRunConfig:
@@ -102,6 +110,7 @@ def train_model(config: TrainingRunConfig, log_dir: Path) -> None:
     train_loader, test_loader = build_data_loaders(config)
 
     tensorboard_log = SummaryWriter(log_dir=(log_dir / "tensorboard"))
+    tensorboard_log.add_text("Config", config.to_yaml())
 
     def train_epoch(epoch: int):
         model.train()
@@ -130,7 +139,7 @@ def train_model(config: TrainingRunConfig, log_dir: Path) -> None:
             "Loss/train", total_loss / len(train_loader.dataset), epoch
         )
 
-    def test_epoch():
+    def test_epoch(epoch: int):
         model.eval()
         test_loss = 0
         correct = 0
@@ -147,15 +156,14 @@ def train_model(config: TrainingRunConfig, log_dir: Path) -> None:
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
         test_loss /= len(test_loader.dataset)
-
+        accuracy = 100.0 * correct / len(test_loader.dataset)
         print(
             "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
-                test_loss,
-                correct,
-                len(test_loader.dataset),
-                100.0 * correct / len(test_loader.dataset),
+                test_loss, correct, len(test_loader.dataset), accuracy
             )
         )
+        tensorboard_log.add_scalar("Loss/test", test_loss, epoch)
+        tensorboard_log.add_scalar("Accuracy/test", accuracy, epoch)
 
     profile_schedule = schedule(wait=1, warmup=1, active=1, repeat=1)
     with profile(
@@ -169,7 +177,7 @@ def train_model(config: TrainingRunConfig, log_dir: Path) -> None:
             with record_function("train"):
                 train_epoch(epoch)
             with record_function("test"):
-                test_epoch()
+                test_epoch(epoch)
             scheduler.step()
             prof.step()
 

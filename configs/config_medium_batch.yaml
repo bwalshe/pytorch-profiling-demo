@@ -1,4 +1,4 @@
-batch_size: 64
+batch_size: 256
 epochs: 5
 gamma: 0.7
 log_interval: 10
