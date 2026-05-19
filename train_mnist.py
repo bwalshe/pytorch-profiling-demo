@@ -36,6 +36,7 @@ class DataLoaderConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     num_workers: int = 0
     prefetch_factor: int | None = None
+    shuffle: bool = True
 
 
 class TrainingRunConfig(BaseModel):
@@ -48,7 +49,6 @@ class TrainingRunConfig(BaseModel):
     seed: int = 1
     data_loader: DataLoaderConfig | None = None
     use_gpu: bool = True
-    shuffle_data: bool = True
     log_interval: int = 10
 
     def save(self, path: Path) -> None:
@@ -83,7 +83,7 @@ def build_data_loaders(config: TrainingRunConfig) -> tuple[DataLoader, DataLoade
             "num_workers": config.data_loader.num_workers,
             "prefetch_factor": config.data_loader.prefetch_factor,
             "persistent_workers": True,
-            "shuffle": True,
+            "shuffle": config.data_loader.shuffle,
         }
         train_kwargs.update(accel_kwargs)
         test_kwargs.update(accel_kwargs)
