@@ -43,7 +43,7 @@ with Google Chrome. To do this, open up the browser and enter `chrome://tracing`
 into the address bar. This will bring you to a screen where you can load the
 file by clicking on the `load` button. You should see something like this:
 
-![The simple trace](./images/simple_trace_stack_all.pnd)
+![The simple trace](./images/simple_trace_stack_all.png)
 
 The easiest way to navigate this graph is to use the `wsad` keys, which behave
 just like a video game
