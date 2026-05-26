@@ -7,7 +7,7 @@ from trace_harness import job_factory, run_cli
 
 @job_factory("linear", default=True)
 def make_linear(device):
-    size = 1000
+    size = 100
 
     weights = torch.rand((size, size), device=device)
     bias = torch.rand((size, 1), device=device)

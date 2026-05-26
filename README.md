@@ -57,3 +57,46 @@ If you zoom in with `w` and scroll left with `a`, you can see where the profiler
 actually initialises.
 
 ![Zoom in](./images/zoom_in.png)
+
+This shows a flame graph of the stack while the profiler is being initialised. You can 
+see how the context manager's  `__enter__` method gets called and this in turn calls 
+the `start` function defined in `torch/profiler/profiler.py`. By default the
+profiler doesn't record the full stack trace as a lot of this info could be considered
+noise, but it is interesting to see here how the initialisation process runs and note 
+that it is not instant. 
+
+The next big section of the graph is dominated by a matrix multiplication followed by 
+an addition operation. This takes about 50ms (which is almost the entire program runtime).
+You can see that most of the time is spent on the CPU making calls to functions like 
+`cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags` before the ops finally call 
+`cudaLaunchKernel` and give the GPU a few nanoseconds of work.
+
+Zooming right in on the right hand side of the graph, we can see that the subsequent
+iterations run much quicker. This time the CPU almost immediately dispatches the work 
+to the GPU. 
+
+This warm-up period means that typically you do not want to profile the first 
+loop, and the Pytorch profiler gives you a scheduler tool for managing this. The
+following code will get the profiler to wait one step before starting, then once it has 
+started, it will wait another step before recording anything. This will chop out the 
+initial iteration where Pytorch is gathering the info needed to launch kernels and
+then it will avoid recording the next iteration which could be affected by the time 
+that the profiler uses starting up. The call to `prof.step()` lets the scheduler know
+what the current iteration is. 
+
+```python
+
+activities = [ProfilerActivity.CPU, ProfilerActivity.CUDA]
+scheduler = schedule(wait=1, warmup=1, active=3)
+with profile(activities=activities, schedule=scheduler) as prof:
+    for _ in range(iterations):
+        weights @ xs + bias
+        prof.step()
+```
+
+Using this code produces the following graph on my laptop:
+
+![Trimmed trace](simple_linear_scheduler_no_stack.png)
+
+This is way more legible than the original graph and I don't need to to a lot of 
+zooming and scrolling to see what is going on. 

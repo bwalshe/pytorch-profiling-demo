@@ -5,7 +5,7 @@ from trace_harness import job_factory, run_cli
 
 
 def make_data(device):
-    size = 10000
+    size = 1000
     a = torch.rand((size, size), device=device)
     b = torch.rand((size, size), device=device)
     return a, b
@@ -20,7 +20,7 @@ def make_invert(device):
             a_inv = a.inverse()
         with torch.Stream(device):
             b_inv = b.inverse()
-        a_inv @ b_inv
+        x = a_inv @ b_inv
 
     return job
 
