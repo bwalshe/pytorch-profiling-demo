@@ -61,7 +61,7 @@ def trace_loop(
         activities=activities, schedule=scheduler, with_stack=with_stack
     ) as prof:
         for _ in range(iterations):
-            job()
+            z = job()
             prof.step()
     prof.export_chrome_trace(
         trace_name(output_path, job_type, with_scheduler, with_stack)

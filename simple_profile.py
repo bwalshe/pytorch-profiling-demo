@@ -1,4 +1,3 @@
-import argparse
 from pathlib import Path
 import torch
 
@@ -7,7 +6,7 @@ from trace_harness import job_factory, run_cli
 
 @job_factory("linear", default=True)
 def make_linear(device):
-    size = 100
+    size = 1000
 
     weights = torch.rand((size, size), device=device)
     bias = torch.rand((size, 1), device=device)
