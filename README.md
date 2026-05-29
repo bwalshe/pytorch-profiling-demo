@@ -167,7 +167,7 @@ to bring up the event info box and then mouse-over/click the
 `Incoming Flow ac2g` link. This will show an arrow linking the CPU and GPU
 events.
 
-![Linking events](images/ac2g.png)
+![Linking events](images/ac2g_link.png)
 
 The second thing to note is that removing the correctness check didn't make
 the program complete any quicker. All that happened was that the Python
